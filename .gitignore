@@ -25,6 +25,7 @@ var/
 .installed.cfg
 *.egg
 *.eggs
+*.pyc
 
 # Windows installers
 *.msi
