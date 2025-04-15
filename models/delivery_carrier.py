@@ -3,12 +3,14 @@ from odoo.exceptions import UserError
 import logging
 from odoo.tools.config import config
 from odoo import http
+import requests
+import base64
 
 _logger = logging.getLogger(__name__)
 
 # from .banlingkit_master_data import (
 # )
-from .banlingkit_request import BanlingkitRequest
+from .banlingkit_request import BanlingkitExpressRequest
 
 
 class DeliveryCarrier(models.Model):
@@ -20,16 +22,13 @@ class DeliveryCarrier(models.Model):
     )
     banlingkit_api_cid = fields.Char(
         string="API Client ID",
-        help="CNE Express API Client ID. This is the user used to connect to the API.",
+        help="BanlingKit Express API Client ID. This is the user used to connect to the API.",
     )
     banlingkit_api_token = fields.Char(
         string="API Token",
-        help="CNE Express API Token. This is the password used to connect to the API.",
+        help="BanlingKit Express API Token. This is the password used to connect to the API.",
     )
-    banlingkit_channel = fields.Selection(
-        selection=CNEXPRESS_CHANNELS,
-        string="Channel",
-    )
+
     banlingkit_document_model_code = fields.Selection(
         selection=[
             ("SINGLE", "Single"),
@@ -49,14 +48,14 @@ class DeliveryCarrier(models.Model):
 
     @api.onchange("delivery_type")
     def _onchange_delivery_type_ctt(self):
-        """Default price method for CNE as the API can't gather prices."""
+        """Default price method for Banlingkit as the API can't gather prices."""
         if self.delivery_type == "banlingkit":
             self.price_method = "base_on_rule"
 
-    def _ctt_request(self):
-        """Get CNE Request object
+    def _bl_request(self):
+        """Get Banlingkit Request object
 
-        :return CNEExpressRequest: CNE Express Request object
+        :return BanlingkitExpressRequest: Banlingkit Express Request object
         """
         _logger.debug("banlingkit_api_cid: %s", self.banlingkit_api_cid)
         if not self.banlingkit_api_cid:
@@ -67,17 +66,20 @@ class DeliveryCarrier(models.Model):
             # read the value from the configuration
             _logger.warning("banlingkit_api_token is False, please check configuration.")
             self.banlingkit_api_token = config.get(
-                "cne_api_secret", self.banlingkit_api_token
+                "banlingkit_api_salt", self.banlingkit_api_token
             )
         if self.banlingkit_api_cid is False:
             self.banlingkit_api_cid = config.get(
-                "cne_api_cid", self.banlingkit_api_cid
+                "banlingkit_api_cid", self.banlingkit_api_cid
             )
-        
+        print("banlingkit_api_cid")
+        print(self.banlingkit_api_cid)
+        print("banlingkit_api_token")
+        print(self.banlingkit_api_token)
 
-        return CNEExpressRequest(
+        return BanlingkitExpressRequest(
             api_cid=self.banlingkit_api_cid,
-            api_token=self.banlingkit_api_token,
+            api_salt=self.banlingkit_api_token,
             prod=self.prod_environment,
         )
 
@@ -85,7 +87,7 @@ class DeliveryCarrier(models.Model):
     def _ctt_log_request(self, ctt_request):
         """When debug is active requests/responses will be logged in ir.logging
 
-        :param ctt_request ctt_request: CNE Express request object
+        :param ctt_request ctt_request: Banlingkit Express request object
         """
         self.log_xml(ctt_request.ctt_last_request, "ctt_request")
         self.log_xml(ctt_request.ctt_last_response, "ctt_response")
@@ -99,22 +101,11 @@ class DeliveryCarrier(models.Model):
         print(error)
         return
 
-        if not error:
-            return
-        error_msg = ""
-        for code, msg in error:
-            if not code:
-                continue
-            error_msg += "{} - {}\n".format(code, msg)
-        if not error_msg:
-            return
-        raise UserError(_("CNE Express Error:\n\n%s") % error_msg)
-
     @api.model
     def _banlingkit_format_tracking(self, tracking):
         """Helper to forma tracking history strings
 
-        :param OrderedDict tracking: CNE tracking values
+        :param OrderedDict tracking: Banlingkit tracking values
         :return str: Tracking line
         """
         status = "{} - [{}] {}".format(
@@ -137,7 +128,7 @@ class DeliveryCarrier(models.Model):
         if not self.banlingkit_shipping_type:
             return
         # Avoid checking if credentianls aren't setup or are invalid
-        ctt_request = self._ctt_request()
+        ctt_request = self._bl_request()
         error, service_types = ctt_request.get_service_types()
         self._ctt_log_request(ctt_request)
         self._ctt_check_error(error)
@@ -164,15 +155,15 @@ class DeliveryCarrier(models.Model):
         :raises UserError: If the user credentials aren't valid
         """
         self.ensure_one()
-        ctt_request = self._ctt_request()
+        ctt_request = self._bl_request()
         error = ctt_request.validate_user()
         self._ctt_log_request(ctt_request)
 
     def _prepare_banlingkit_shipping(self, picking):
-        """Convert picking values for CNE Express API
+        """Convert picking values for Banlingkit Express API
 
         :param record picking: `stock.picking` record
-        :return dict: Values prepared for the CNE connector
+        :return dict: Values prepared for the Banlingkit connector
         """
         self.ensure_one()
         # A picking can be delivered from any warehouse
@@ -197,106 +188,54 @@ class DeliveryCarrier(models.Model):
             # get the product name and quantity from the picking
             goodslist.append(
                 {
-                    "cxGoods": move.product_id.name,
-                    "cxGoodsA": move.product_id.name,
-                    "fxPrice": move.product_id.lst_price,
-                    "cxMoney": picking.company_id.currency_id.name,
-                    "ixQuantity": 1,
+                    "declaredEnSpecification": move.product_id.declared_name_en,
+                    "declaredEnName": move.product_id.declared_name_en,
+                    "declaredSpecification": move.product_id.declared_name_cn,
+                    "declaredName": move.product_id.declared_name_cn,
+                    "quantity": move.product_uom_qty,
+                    "barCode": move.product_id.default_code,
                 }
             )
 
-        # labelContent
-        labelcontent = {
-            "fileType": "PDF",
-            "labelType": "label10x15",
-            "pickList": 1
-        }
+
+        # Get invoice Price from the picking
+        invoice_price = 0.0
+        for move in picking.move_ids:
+            # get the product name and quantity from the picking
+            invoice_price += move.product_id.list_price * move.product_uom_qty
 
         return {
-            "cEmsKind": self.name.replace(" ",""),  # Optional
-            "nItemType": 1,  # Optional
-            "cAddrFrom": "MYSHOP",
-            "iItem": 1,  # Optional
-            # order number
-            "cRNo": picking.origin,
-            # order receiver country code
-            "cDes": recipient.country_id.code,
-            # order receiver name
-            "cReceiver": recipient.name or recipient_entity.name,
-            # order receiver company name
-            "cRunit": recipient_entity.name,
-            # order receiver address
-            "cRAddr": recipient.street,
-            # order receiver city
-            "cRCity": recipient.city,
-            # order receiver province
-            "cRProvince": recipient.state_id.name,
-            # order receiver postal code
-            "cRPostcode": recipient.zip,
-            # order receiver country name
-            "cRCountry": recipient.country_id.name,
-            # order receiver phone number
-            "cRPhone": str(recipient.phone or recipient_entity.phone or ''),
-            # order receiver mobile number
-            "cRSms": str(recipient.mobile or recipient_entity.mobile or ''),
-            # order receiver email address
-            "cRPhone": str(recipient.phone or recipient_entity.phone or ''),
-            # order package weight
-            "fWeight": int(weight * 1000) or 1,  # Weight in grams
-            # order memo
-            "cMemo": None,  # Optional
-            # order reserve
-            "cReserve": None,  # Optional
-            # order vat code
-            "vatCode": None,  # Optional
-            # order ioss code
-            "iossCode": None,  # Optional
-            # order sender name
-            "cSender": sender_partner.name,
-            "labelContent": labelcontent,  # Optional
-            "GoodsList": goodslist
+            "storehouseCode": "ST00002",
+            "sourceCode": reference,
+            #"sourceCode": "SS00002",
+            "currency": picking.company_id.currency_id.name,
+            # order amount
+            "invoicePrice": invoice_price,
+            "needPack": False,
+            "consignee": recipient.name or recipient_entity.name,
+            "tel": str(recipient.phone or recipient_entity.phone or ''),
+            "contry": recipient.country_id.name,
+            "province": recipient.state_id.name,
+            "city": recipient.city,
+            "detail": recipient.street,
+            #"houseNumber": recipient.street2,
+            "postCode": recipient.zip,
+            "email": str(recipient.email or recipient_entity.email or ''),
+            "comments": None,  # Optional
+            "items": goodslist,
         }
-        return {
-            "ClientReference": reference,  # Optional
-            "ClientDepartmentCode": None,  # Optional (no core field matches)
-            "ItemsCount": picking.number_of_packages,
-            "IsClientPodScanRequired": None,  # Optional
-            "RecipientAddress": recipient.street,
-            "RecipientCountry": recipient.country_id.code,
-            "RecipientEmail": recipient.email or recipient_entity.email,  # Optional
-            "RecipientSMS": None,  # Optional
-            "RecipientMobile": recipient.mobile or recipient_entity.mobile,  # Optional
-            "RecipientName": recipient.name or recipient_entity.name,
-            "RecipientPhone": recipient.phone or recipient_entity.phone,
-            "RecipientPostalCode": recipient.zip,
-            "RecipientTown": recipient.city,
-            "RefundValue": None,  # Optional
-            "HasReturn": None,  # Optional
-            "IsSaturdayDelivery": None,  # Optional
-            "SenderAddress": sender_partner.street,
-            "SenderName": sender_partner.name,
-            "SenderPhone": sender_partner.phone or "",
-            "SenderPostalCode": sender_partner.zip,
-            "SenderTown": sender_partner.city,
-            "ShippingComments": None,  # Optional
-            "ShippingTypeCode": self.banlingkit_shipping_type,
-            "Weight": int(weight * 1000) or 1,  # Weight in grams
-            "PodScanInstructions": None,  # Optional
-            "IsFragile": None,  # Optional
-            "RefundTypeCode": None,  # Optional
-            "CreatedProcessCode": "ODOO",  # Optional
-            "HasControl": None,  # Optional
-            "HasFinalManagement": None,  # Optional
-        }
+
 
     def banlingkit_send_shipping(self, pickings):
-        """CNE Express wildcard method called when a picking is confirmed
+        """Banlingkit Express wildcard method called when a picking is confirmed
 
         :param record pickings: `stock.picking` recordset
         :raises UserError: On any API error
         :return dict: With tracking number and delivery price (always 0)
         """
-        ctt_request = self._ctt_request()
+        ctt_request = self._bl_request()
+        print("banlingkit_send_shipping")
+        print(ctt_request)
         result = []
         for picking in pickings:
             vals = self._prepare_banlingkit_shipping(picking)
@@ -304,7 +243,7 @@ class DeliveryCarrier(models.Model):
             print(vals)
         
             try:
-                error, documents, tracking = ctt_request.manifest_shipping(vals)
+                error, documents, tracking = ctt_request.manifest_shipping(shipping_values=vals)
                 self._ctt_check_error(error)
             except Exception as e:
                 raise (e)
@@ -320,12 +259,29 @@ class DeliveryCarrier(models.Model):
             picking.carrier_tracking_ref = tracking
             picking.update({"carrier_tracking_ref": tracking})
 
+            # Download the PDF document from the URL
+            response = requests.get(documents)
+            if response.status_code != 200:
+                raise Exception("Error in request")
+            pdf_content = response.content
+            
+            attachment = self.env['ir.attachment'].create({
+                'name': tracking + '.pdf',
+                'datas': base64.b64encode(pdf_content),
+                'db_datas': base64.b64encode(pdf_content),
+                'res_model': 'stock.picking',  # Attach to the stock.picking
+                'res_id': pickings.id,  # Attach to the current picking
+                'type': 'binary',
+                'mimetype': 'application/pdf',
+                'url': documents,
+            })
+
             # The default shipping method doesn't allow to configure the label
             # format, so once we get the tracking, we ask for it again.
-            documents = self.banlingkit_get_label(tracking)
+            #documents = self.banlingkit_get_label(tracking)
             # We post an extra message in the chatter with the barcode and the
             # label because there's clean way to override the one sent by core.
-            body = _("CNE Shipping Documents")
+            body = _("Banlingkit Shipping Documents")
             picking.message_post(body=body, attachments=documents)
 
             # the documents is a url, we need to redirect to the url to print the label
@@ -343,7 +299,7 @@ class DeliveryCarrier(models.Model):
         :param recordset: pickings `stock.picking` recordset
         :returns boolean: True if success
         """
-        ctt_request = self._ctt_request()
+        ctt_request = self._bl_request()
         for picking in pickings.filtered("carrier_tracking_ref"):
             try:
                 error = ctt_request.cancel_shipping(picking.carrier_tracking_ref)
@@ -363,7 +319,7 @@ class DeliveryCarrier(models.Model):
         self.ensure_one()
         if not reference:
             return False
-        ctt_request = self._ctt_request()
+        ctt_request = self._bl_request()
         try:
             error, label = ctt_request.get_documents_multi(
                 reference,
@@ -381,14 +337,14 @@ class DeliveryCarrier(models.Model):
         return label
 
     def banlingkit_tracking_state_update(self, picking):
-        """Wildcard method for CNE Express tracking followup
+        """Wildcard method for Banlingkit Express tracking followup
 
         :param recod picking: `stock.picking` record
         """
         self.ensure_one()
         if not picking.carrier_tracking_ref:
             return
-        ctt_request = self._ctt_request()
+        ctt_request = self._bl_request()
         try:
             error, trackings = ctt_request.get_tracking(picking.carrier_tracking_ref)
             self._ctt_check_error(error)
@@ -401,12 +357,12 @@ class DeliveryCarrier(models.Model):
         )
         current_tracking = trackings.pop()
         picking.tracking_state = self._banlingkit_format_tracking(current_tracking)
-        picking.delivery_state = CNEXPRESS_DELIVERY_STATES_STATIC.get(
+        picking.delivery_state = BanlingkitXPRESS_DELIVERY_STATES_STATIC.get(
             current_tracking["StatusCode"], "incidence"
         )
 
     def banlingkit_get_tracking_link(self, picking):
-        """Wildcard method for CNE Express tracking link.
+        """Wildcard method for Banlingkit Express tracking link.
 
         :param record picking: `stock.picking` record
         :return str: tracking url

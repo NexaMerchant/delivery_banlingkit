@@ -88,66 +88,66 @@ msgstr "E-COMMERCE CANARIE"
 
 #. module: delivery_banlingkit
 #: model:ir.model.fields.selection,name:delivery_banlingkit.selection__delivery_carrier__delivery_type__banlingkit
-msgid "CNE Express"
-msgstr "CNE Express"
+msgid "Banlingkit Express"
+msgstr "Banlingkit Express"
 
 #. module: delivery_banlingkit
 #: model_terms:ir.ui.view,arch_db:delivery_banlingkit.view_delivery_carrier_form
-msgid "CNE Express Configuration"
-msgstr "Configurazione CNE Express"
+msgid "Banlingkit Express Configuration"
+msgstr "Configurazione Banlingkit Express"
 
 #. module: delivery_banlingkit
 #. odoo-python
 #: code:addons/delivery_banlingkit/models/delivery_carrier.py:0
 #, python-format
 msgid ""
-"CNE Express Error:\n"
+"Banlingkit Express Error:\n"
 "\n"
 "%s"
 msgstr ""
-"Errore CNE Express:\n"
+"Errore Banlingkit Express:\n"
 "\n"
 "%s"
 
 #. module: delivery_banlingkit
 #: model_terms:ir.ui.view,arch_db:delivery_banlingkit.view_picking_withcarrier_out_form
-msgid "CNE Express Label"
-msgstr "Etichetta CNE Express"
+msgid "Banlingkit Express Label"
+msgstr "Etichetta Banlingkit Express"
 
 #. module: delivery_banlingkit
 #: model:ir.actions.act_window,name:delivery_banlingkit.action_delivery_banlingkit_manifest_wizard
 #: model:ir.ui.menu,name:delivery_banlingkit.menu_banlingkit_manifest
-msgid "CNE Express Manifest"
-msgstr "Lista di spedizione CNE Express"
+msgid "Banlingkit Express Manifest"
+msgstr "Lista di spedizione Banlingkit Express"
 
 #. module: delivery_banlingkit
 #: model_terms:ir.ui.view,arch_db:delivery_banlingkit.delivery_manifest_wizard_form
-msgid "CNE Express Manifest Report"
-msgstr "Resoconto lista di spedizione CNE Express"
+msgid "Banlingkit Express Manifest Report"
+msgstr "Resoconto lista di spedizione Banlingkit Express"
 
 #. module: delivery_banlingkit
 #: model_terms:ir.ui.view,arch_db:delivery_banlingkit.delivery_pickup_wizard_form
-msgid "CNE Express Pickup Report"
-msgstr "Resoconto presa CNE Express"
+msgid "Banlingkit Express Pickup Report"
+msgstr "Resoconto presa Banlingkit Express"
 
 #. module: delivery_banlingkit
 #: model:ir.actions.act_window,name:delivery_banlingkit.action_delivery_banlingkit_pickup_wizard
-msgid "CNE Express Pickup Request"
-msgstr "Richiesta presa CNE Express"
+msgid "Banlingkit Express Pickup Request"
+msgstr "Richiesta presa Banlingkit Express"
 
 #. module: delivery_banlingkit
 #. odoo-python
 #: code:addons/delivery_banlingkit/models/stock_picking.py:0
 #, python-format
-msgid "CNE Express label for %s"
-msgstr "Etichetta CNE Express per %s"
+msgid "Banlingkit Express label for %s"
+msgstr "Etichetta Banlingkit Express per %s"
 
 #. module: delivery_banlingkit
 #. odoo-python
 #: code:addons/delivery_banlingkit/models/delivery_carrier.py:0
 #, python-format
-msgid "CNE Shipping Documents"
-msgstr "Documento spedizione CNE"
+msgid "Banlingkit Shipping Documents"
+msgstr "Documento spedizione Banlingkit"
 
 #. module: delivery_banlingkit
 #: model_terms:ir.ui.view,arch_db:delivery_banlingkit.delivery_manifest_wizard_form
@@ -271,8 +271,8 @@ msgstr "Ottieni lista di spedizione"
 
 #. module: delivery_banlingkit
 #: model:ir.model,name:delivery_banlingkit.model_banlingkit_manifest_wizard
-msgid "Get the CNE Express Manifest for the given date range"
-msgstr "Ottieni la lista di spedizione CNE Express per il periodo dato"
+msgid "Get the Banlingkit Express Manifest for the given date range"
+msgstr "Ottieni la lista di spedizione Banlingkit Express per il periodo dato"
 
 #. module: delivery_banlingkit
 #: model:ir.model.fields,field_description:delivery_banlingkit.field_banlingkit_manifest_wizard__id
@@ -305,8 +305,8 @@ msgstr "Ultimo aggiornamento il"
 
 #. module: delivery_banlingkit
 #: model:ir.model.fields,help:delivery_banlingkit.field_banlingkit_manifest_wizard__carrier_ids
-msgid "Leave empty to gather all the CNE account manifests"
-msgstr "Lasciare vuoto per ottenere tutte le liste di spedizione del conto CNE"
+msgid "Leave empty to gather all the Banlingkit account manifests"
+msgstr "Lasciare vuoto per ottenere tutte le liste di spedizione del conto Banlingkit"
 
 #. module: delivery_banlingkit
 #: model:ir.model.fields,field_description:delivery_banlingkit.field_banlingkit_manifest_wizard__attachment_ids
@@ -437,10 +437,10 @@ msgstr "Prova connessione"
 #: code:addons/delivery_banlingkit/models/delivery_carrier.py:0
 #, python-format
 msgid ""
-"This CNE Express service (%(service_name)s) isn't allowed for this account configuration. Please choose one of the followings\n"
+"This Banlingkit Express service (%(service_name)s) isn't allowed for this account configuration. Please choose one of the followings\n"
 "%(type_descriptions)s"
 msgstr ""
-"Questo servizio CNE Express (%(service_name)s) non è consentito per questa "
+"Questo servizio Banlingkit Express (%(service_name)s) non è consentito per questa "
 "configurazione dell'account. Scegliere una delle seguenti\n"
 "%(type_descriptions)s"
 

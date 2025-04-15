@@ -4,7 +4,7 @@ from odoo.exceptions import UserError
 from odoo.tests import Form, common
 
 
-class TestDeliveryCNEExpress(common.TransactionCase):
+class TestDeliveryBanlingkitExpress(common.TransactionCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -13,12 +13,12 @@ class TestDeliveryCNEExpress(common.TransactionCase):
         )
         cls.carrier_banlingkit = cls.env["delivery.carrier"].create(
             {
-                "name": "CNE Express",
+                "name": "Banlingkit Express",
                 "delivery_type": "banlingkit",
                 "product_id": cls.shipping_product.id,
                 "debug_logging": True,
                 "prod_environment": False,
-                # CNE will maintain these credentials in order to allow OCA testing
+                # Banlingkit will maintain these credentials in order to allow OCA testing
                 "banlingkit_user": "000002ODOO1",
                 "banlingkit_password": "CAL%224271",
                 "banlingkit_agency": "000002",
@@ -70,7 +70,7 @@ class TestDeliveryCNEExpress(common.TransactionCase):
             self.carrier_banlingkit.action_ctt_validate_user()
 
     def test_01_banlingkit_picking_confirm_simple(self):
-        """The picking is confirm and the shipping is recorded to CNE Express"""
+        """The picking is confirm and the shipping is recorded to Banlingkit Express"""
         self.picking.button_validate()
         self.assertTrue(self.picking.carrier_tracking_ref)
         self.picking.tracking_state_update()

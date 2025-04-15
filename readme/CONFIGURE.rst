@@ -1,12 +1,12 @@
-CNE Express Iberic Web Services API doesn't provide shipping price calculation methods.
+Banlingkit Express Iberic Web Services API doesn't provide shipping price calculation methods.
 So you'll have to rely on Odoo standard methods selecting them in the field
 *Price method*.
 
-To configure your CNE Express services, go to:
+To configure your Banlingkit Express services, go to:
 
 #. *Inventory/Sales > Configuration > Delivery methods* and create a new one.
-#. Choose *CNE Express* as provider.
-#. Configure your CNE credentials: contract, agency, customer code, user and password.
+#. Choose *Banlingkit Express* as provider.
+#. Configure your Banlingkit credentials: contract, agency, customer code, user and password.
 #. Configure your label format:
 
    - Single: Thermal printer (single label).

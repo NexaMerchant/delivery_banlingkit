@@ -16,41 +16,17 @@ BL_API_URL = {
 }
 
 
-def log_request(method):
-    """Decorator to write raw request/response in the CNE request object"""
-
-    def wrapper(*args, **kwargs):
-        res = method(*args, **kwargs)
-        try:
-            args[0].ctt_last_request = etree.tostring(
-                args[0].history.last_sent["envelope"],
-                encoding="UTF-8",
-                pretty_print=True,
-            )
-            args[0].ctt_last_response = etree.tostring(
-                args[0].history.last_received["envelope"],
-                encoding="UTF-8",
-                pretty_print=True,
-            )
-        # Don't fail hard on this. Sometimes zeep can't keep history
-        except Exception:
-            return res
-        return res
-
-    return wrapper
-
-
 class BanlingkitExpressRequest:
-    """Interface between CNE Express SOAP API and Odoo recordset.
-    Abstract CNE Express API Operations to connect them with Odoo
+    """Interface between Banlingkit Express SOAP API and Odoo recordset.
+    Abstract Banlingkit Express API Operations to connect them with Odoo
     """
     cid = False
     salt = False
     
 
-    def __init__(self, cid, salt, prod=False):
-        self.cid = cid
-        self.salt = salt
+    def __init__(self, api_cid, api_salt, prod=False):
+        self.cid = api_cid
+        self.salt = api_salt
         # We'll store raw xml request/responses in this properties
         self.bl_last_request = False
         self.bl_last_response = False
@@ -58,9 +34,7 @@ class BanlingkitExpressRequest:
         self.headers = {
             "Content-Type": "application/json;charset=UTF-8"
         }
-        # print("init")
-        # print(self.api_cid)
-        # print(self.api_token)
+   
 
     @staticmethod
     def _format_error(error):
@@ -83,36 +57,6 @@ class BanlingkitExpressRequest:
             return []
         return [(x.FileName, x.FileContent) for x in documents.Document]
 
-    def _credentials(self):
-        """Get the credentials in the API expected format.
-
-        :return dict: Credentials keys and values
-        """
-        return {
-        }
-
-    # API Methods
-
-    def emskindlist(self):
-        url = self.url + "/cgi-bin/EmsData.dll?DoApi"
-        timestamp = timestamp = str(int(time.time()*1000))
-        secret = self.get_secret(timestamp)
-        data = {
-            "RequestName": "EmsKindList",
-            "icID": self.api_cid,
-            "TimeStamp": timestamp,
-            "MD5": secret
-        }
-        response = requests.post(url, headers=self.headers, json=data)
-        print(response.text)
-        return response.json()
-        if response.status_code != 200:
-            raise Exception("Error in request")
-        if response.json().get("ErrorCode") != 0:
-            raise Exception("Error in response")
-        return response.json().get("Data")
-
-
     def manifest_shipping(self, shipping_values):
         """Create shipping with the proper picking values
 
@@ -128,22 +72,19 @@ class BanlingkitExpressRequest:
             "Accept": "application/json",
         }
         # Generate the secret key for the API
-        url = self.url + "/cgi-bin/EmsData.dll?DoApi"
-        timestamp = str(int(time.time()*1000))
-
-        data = {
-            "RequestName": "PreInputSet",
-            "icID": self.api_cid,
-            "TimeStamp": timestamp,
-            "MD5": self.get_secret(timestamp),
-            "RecList": [shipping_values]
+        url = self.url + "/invoice/create"
+        
+        headers = {
+            "salt": self.salt,
         }
 
+        data = [shipping_values]
 
         # Send the request to the API
         print("Request URL: ", url)
         print("Request Headers: ", headers)
         print("Request Data: ", data)
+        print("Request Headers: ", headers)
 
         response = requests.post(url, headers=headers, json=data)
         print("Response Status Code: ", response.status_code)
@@ -164,18 +105,12 @@ class BanlingkitExpressRequest:
         # check the response status code and response data
         if response.status_code != 200:
             raise Exception("Error in request")
-        if response.json().get("ReturnValue") == 0:
+        
+        if( response.json().get("code") != 1):
             raise Exception("Error in response")
-        if response.json().get("ReturnValue") > 0:
-            ErrList = response.json().get("ErrList")
-            if ErrList:
-                cNo = ErrList[0].get("cNo")
-                printUrl = ErrList[0].get("printUrl")
-            else:
-                cNo = response.json().get("cNo")
-                printUrl = response.json().get("printUrl")
-        print("cNo: ", cNo)
-        print("PrintUrl: ", printUrl)
+        if response.json().get("code") == 1:
+            cNo = self.api_cid + shipping_values.get("sourceCode")
+        
 
         return (
             "1",
@@ -213,7 +148,6 @@ class BanlingkitExpressRequest:
             self._format_document(response.Documents),
         )
 
-    @log_request
     def get_documents_multi(
         self,
         shipping_codes,
@@ -237,7 +171,7 @@ class BanlingkitExpressRequest:
             list: error codes in the form of tuples (code, descriptions)
             list: documents in the form of tuples (file_content, file_name)
         """
-        url = "https://label.cne.com/CnePrint"
+        url = "https://label.Banlingkit.com/BanlingkitPrint"
         timestamp = str(int(time.time()*1000))
         secret = self.get_secret(timestamp)
         data = {
@@ -259,7 +193,6 @@ class BanlingkitExpressRequest:
             raise Exception("Error in response")
         return response.json()
 
-    @log_request
     def get_service_types(self):
         """Gets the hired service types. Maps to API's GetServiceTypes.
 
@@ -276,7 +209,6 @@ class BanlingkitExpressRequest:
             ],
         )
 
-    @log_request
     def cancel_shipping(self, shipping_code):
         """Cancel a shipping by code
 
@@ -287,7 +219,6 @@ class BanlingkitExpressRequest:
         response = self.client.service.CancelShipping(**values)
         return [(x.ErrorCode, x.ErrorMessage) for x in response]
 
-    @log_request
     def report_shipping(
         self, process_code="ODOO", document_type="XLSX", from_date=None, to_date=None
     ):
@@ -314,13 +245,8 @@ class BanlingkitExpressRequest:
             self._format_document(response.Documents),
         )
 
-    @log_request
-    def validate_user(self):
-
-        return self.emskindlist()
 
 
-    @log_request
     def create_request(self, delivery_date, min_hour, max_hour):
         """Create a shipping pickup request. CreateRequest API's mapping.
 
@@ -331,21 +257,20 @@ class BanlingkitExpressRequest:
             list: Error codes
             str: Request shipping code
         """
-        url = "https://apitracking.cne.com/client/track"
+        url = self.url + "/invoice/lists"
         timestamp = str(int(time.time()*1000))
         secret = self.get_secret(timestamp)
         headers = {
-            "Content-Type": "application/json;charset=UTF-8",
-            "Accept": "application/json",
+            "salt": self.salt,
         }
+        # form-data data
         data = {
-            "RequestName": "ClientTrack",
-            "icID": self.api_cid,
-            "TimeStamp": timestamp,
-            "MD5": secret,
-            "cNo": "3A5V908307617",
-            "lang": "en"
         }
-        response = requests.post(url, headers=headers, json=data)
+
+        # Send the request to the API
+        print("Request URL: ", url)
+        
+        response = requests.put(url, headers=headers, data=data)
+        print("Response Status Code: ", response.status_code)
         print(response.text)
         return (response.status_code, response.text)
