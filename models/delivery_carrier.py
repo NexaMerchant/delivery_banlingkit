@@ -84,7 +84,7 @@ class DeliveryCarrier(models.Model):
         )
 
     @api.model
-    def _ctt_log_request(self, ctt_request):
+    def _bl_log_request(self, ctt_request):
         """When debug is active requests/responses will be logged in ir.logging
 
         :param ctt_request ctt_request: Banlingkit Express request object
@@ -130,7 +130,7 @@ class DeliveryCarrier(models.Model):
         # Avoid checking if credentianls aren't setup or are invalid
         ctt_request = self._bl_request()
         error, service_types = ctt_request.get_service_types()
-        self._ctt_log_request(ctt_request)
+        self._bl_log_request(ctt_request)
         self._ctt_check_error(error)
         type_codes, type_descriptions = zip(*service_types)
         if self.banlingkit_shipping_type not in type_codes:
@@ -157,7 +157,7 @@ class DeliveryCarrier(models.Model):
         self.ensure_one()
         ctt_request = self._bl_request()
         error = ctt_request.validate_user()
-        self._ctt_log_request(ctt_request)
+        self._bl_log_request(ctt_request)
 
     def _prepare_banlingkit_shipping(self, picking):
         """Convert picking values for Banlingkit Express API
@@ -248,7 +248,7 @@ class DeliveryCarrier(models.Model):
             except Exception as e:
                 raise (e)
             finally:
-                self._ctt_log_request(ctt_request)
+                self._bl_log_request(ctt_request)
 
             vals.update({"tracking_number": tracking, "exact_price": 0})
             vals.update({"carrier_tracking_ref": tracking})
@@ -259,22 +259,24 @@ class DeliveryCarrier(models.Model):
             picking.carrier_tracking_ref = tracking
             picking.update({"carrier_tracking_ref": tracking})
 
-            # Download the PDF document from the URL
-            response = requests.get(documents)
-            if response.status_code != 200:
-                raise Exception("Error in request")
-            pdf_content = response.content
-            
-            attachment = self.env['ir.attachment'].create({
-                'name': tracking + '.pdf',
-                'datas': base64.b64encode(pdf_content),
-                'db_datas': base64.b64encode(pdf_content),
-                'res_model': 'stock.picking',  # Attach to the stock.picking
-                'res_id': pickings.id,  # Attach to the current picking
-                'type': 'binary',
-                'mimetype': 'application/pdf',
-                'url': documents,
-            })
+            # if documents is a url, we need to download the file and save it as an attachment 
+            attachment = False
+            if documents:
+                response = requests.get(documents)
+                if response.status_code != 200:
+                    raise Exception("Error in request")
+                pdf_content = response.content
+                
+                attachment = self.env['ir.attachment'].create({
+                    'name': tracking + '.pdf',
+                    'datas': base64.b64encode(pdf_content),
+                    'db_datas': base64.b64encode(pdf_content),
+                    'res_model': 'stock.picking',  # Attach to the stock.picking
+                    'res_id': pickings.id,  # Attach to the current picking
+                    'type': 'binary',
+                    'mimetype': 'application/pdf',
+                    'url': documents,
+                })
 
             # The default shipping method doesn't allow to configure the label
             # format, so once we get the tracking, we ask for it again.
@@ -282,13 +284,7 @@ class DeliveryCarrier(models.Model):
             # We post an extra message in the chatter with the barcode and the
             # label because there's clean way to override the one sent by core.
             body = _("Banlingkit Shipping Documents")
-            picking.message_post(body=body, attachments=documents)
-
-            # the documents is a url, we need to redirect to the url to print the label
-
-            http.redirect(
-            documents
-            )
+            picking.message_post(body=body, attachments=attachment)
 
             result.append(vals)
         return result
@@ -307,7 +303,7 @@ class DeliveryCarrier(models.Model):
             except Exception as e:
                 raise (e)
             finally:
-                self._ctt_log_request(ctt_request)
+                self._bl_log_request(ctt_request)
         return True
 
     def banlingkit_get_label(self, reference):
@@ -331,7 +327,7 @@ class DeliveryCarrier(models.Model):
         except Exception as e:
             raise (e)
         finally:
-            self._ctt_log_request(ctt_request)
+            self._bl_log_request(ctt_request)
         if not label:
             return False
         return label
@@ -351,15 +347,13 @@ class DeliveryCarrier(models.Model):
         except Exception as e:
             raise (e)
         finally:
-            self._ctt_log_request(ctt_request)
+            self._bl_log_request(ctt_request)
         picking.tracking_state_history = "\n".join(
             [self._banlingkit_format_tracking(tracking) for tracking in trackings]
         )
         current_tracking = trackings.pop()
         picking.tracking_state = self._banlingkit_format_tracking(current_tracking)
-        picking.delivery_state = BanlingkitXPRESS_DELIVERY_STATES_STATIC.get(
-            current_tracking["StatusCode"], "incidence"
-        )
+        
 
     def banlingkit_get_tracking_link(self, picking):
         """Wildcard method for Banlingkit Express tracking link.
@@ -368,6 +362,6 @@ class DeliveryCarrier(models.Model):
         :return str: tracking url
         """
         tracking_url = (
-            "https://t.17track.net/en#nums={}"
+            "http://admin.banlingwuliu.com:8010/tracks/track-search.html#nums={}"
         )
         return tracking_url.format(picking.carrier_tracking_ref)

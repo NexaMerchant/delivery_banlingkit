@@ -45,7 +45,7 @@ class BanlingkitExpressPickupWizard(models.TransientModel):
             convert_float_time_to_str(self.max_hour),
         )
         self.carrier_id._ctt_check_error(error)
-        self.carrier_id._ctt_log_request(ctt_request)
+        self.carrier_id._bl_log_request(ctt_request)
         self.code = code
         self.state = "done"
         return dict(

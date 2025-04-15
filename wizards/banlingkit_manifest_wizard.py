@@ -60,7 +60,7 @@ class BanlingkitExpressManifestWizard(models.TransientModel):
                 "ODOO", self.document_type, from_date, to_date
             )
             carrier._ctt_check_error(error)
-            carrier._ctt_log_request(ctt_request)
+            carrier._bl_log_request(ctt_request)
             for _filename, file in manifest:
                 filename = "{}{}{}-{}-{}.{}".format(
                     carrier.banlingkit_customer,
