@@ -109,7 +109,7 @@ class BanlingkitExpressRequest:
         if( response.json().get("code") != 1):
             raise Exception("Error in response")
         if response.json().get("code") == 1:
-            cNo = self.api_cid + shipping_values.get("sourceCode")
+            cNo = self.cid + shipping_values.get("sourceCode")
         
 
         return (
@@ -175,7 +175,7 @@ class BanlingkitExpressRequest:
         timestamp = str(int(time.time()*1000))
         secret = self.get_secret(timestamp)
         data = {
-            "icID": self.api_cid,
+            "icID": self.cid,
             "signature": secret,
             "cNos": shipping_codes,
             "ptemp": "label10x15_1",

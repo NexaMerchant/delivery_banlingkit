@@ -84,13 +84,13 @@ class DeliveryCarrier(models.Model):
         )
 
     @api.model
-    def _bl_log_request(self, ctt_request):
+    def _bl_log_request(self, bl_request):
         """When debug is active requests/responses will be logged in ir.logging
 
-        :param ctt_request ctt_request: Banlingkit Express request object
+        :param bl_request bl_request: Banlingkit Express request object
         """
-        self.log_xml(ctt_request.ctt_last_request, "ctt_request")
-        self.log_xml(ctt_request.ctt_last_response, "ctt_response")
+        print("banlingkit cct_request")
+        print(bl_request)
 
     def _ctt_check_error(self, error):
         """Common error checking. We stop the program when an error is returned.
@@ -204,9 +204,12 @@ class DeliveryCarrier(models.Model):
             # get the product name and quantity from the picking
             invoice_price += move.product_id.list_price * move.product_uom_qty
 
+        # strplace the reference "/" with "-"
+        sourceCode = reference.replace("/", "-")
+
         return {
             "storehouseCode": "ST00002",
-            "sourceCode": reference,
+            "sourceCode": sourceCode,
             #"sourceCode": "SS00002",
             "currency": picking.company_id.currency_id.name,
             # order amount
@@ -246,9 +249,14 @@ class DeliveryCarrier(models.Model):
                 error, documents, tracking = ctt_request.manifest_shipping(shipping_values=vals)
                 self._ctt_check_error(error)
             except Exception as e:
+                print(e)
                 raise (e)
             finally:
                 self._bl_log_request(ctt_request)
+
+            print(tracking)
+            print(documents)
+
 
             vals.update({"tracking_number": tracking, "exact_price": 0})
             vals.update({"carrier_tracking_ref": tracking})
@@ -283,8 +291,11 @@ class DeliveryCarrier(models.Model):
             #documents = self.banlingkit_get_label(tracking)
             # We post an extra message in the chatter with the barcode and the
             # label because there's clean way to override the one sent by core.
-            body = _("Banlingkit Shipping Documents")
-            picking.message_post(body=body, attachments=attachment)
+            # body = _("Banlingkit Shipping Documents")
+            # picking.message_post(body=body, attachments=attachment)
+
+            print("banlingkit_send_shipping vals")
+            print(vals)
 
             result.append(vals)
         return result
