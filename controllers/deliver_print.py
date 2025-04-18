@@ -1,13 +1,14 @@
 from odoo import http
 from odoo.http import request
-from reportlab.lib.pagesizes import A6
 from reportlab.pdfgen import canvas
 from reportlab.graphics.barcode import code128
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.units import mm
+from reportlab.lib.pagesizes import landscape
 import io
 import os
+from datetime import datetime
 
 class DeliverPrintController(http.Controller):
     @http.route('/delivery/print_label', type='http', auth='user')
@@ -20,6 +21,9 @@ class DeliverPrintController(http.Controller):
         )
         if 'Microsoft_YaHei' not in pdfmetrics.getRegisteredFontNames():
             pdfmetrics.registerFont(TTFont('Microsoft_YaHei', font_path))
+
+        # 获取当前打印时间
+        print_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         # 查找 sale.order
         picking = request.env['stock.picking'].sudo().search([('carrier_tracking_ref', '=', tracking_no)], limit=1)
@@ -36,44 +40,43 @@ class DeliverPrintController(http.Controller):
         name = partner.name or ''
         country = partner.country_id.name if partner.country_id else ''
 
-        # 生成PDF
         buffer = io.BytesIO()
-        width, height = 100 * mm, 150 * mm
-        c = canvas.Canvas(buffer, pagesize=(width, height))
-        
-        # 顶部距离页面上边缘 10mm
-        top = height - 10 * mm
+        width, height = 150 * mm, 80 * mm  # 横向：宽150mm，高80mm
+        pagesize = (width, height)
+        c = canvas.Canvas(buffer, pagesize=pagesize)
+
+        # 顶部距离页面上边缘 8mm
+        top = height - 8 * mm
 
         c.setFont("Microsoft_YaHei", 12)
-        c.drawString(5 * mm, top, f"面单号: {tracking_no}")
+        c.drawString(3 * mm, top, f"面单号: {tracking_no}")
 
         c.setFont("Microsoft_YaHei", 10)
-        c.drawString(5 * mm, top - 12 * mm, f"收件人: {name}")
-        c.drawString(5 * mm, top - 22 * mm, f"电话: {phone}")
-        c.drawString(5 * mm, top - 32 * mm, f"国家: {country}")
-        c.drawString(5 * mm, top - 42 * mm, f"省份: {region}")
-        c.drawString(5 * mm, top - 52 * mm, f"城市: {city}")
-        c.drawString(5 * mm, top - 62 * mm, f"地址: {address}")
+        line_gap = 7 * mm  # 行间距缩小
+        c.drawString(3 * mm, top - line_gap, f"收件人/国家: {name} {country}")
+        # 省份和城市合并一行
+        c.drawString(3 * mm, top - 2 * line_gap, f"省份/城市: {region} {city}")
+        c.drawString(3 * mm, top - 3 * line_gap, f"地址: {address}")
+        c.drawString(3 * mm, top - 4 * line_gap, f"打印时间: {print_time}")
 
-         # 商品内容
-        y = top - 72 * mm
+        # 商品内容
+        y = top - 5 * line_gap
         c.setFont("Microsoft_YaHei", 10)
-        c.drawString(5 * mm, y, "商品列表:")
-        y -= 8 * mm
+        c.drawString(3 * mm, y, "商品列表:")
+        y -= 5 * mm
         for line in order.order_line:
             product_str = f"{line.product_id.display_name} x {line.product_uom_qty}"
             c.drawString(8 * mm, y, product_str)
-            y -= 7 * mm
-            if y < 30 * mm:  # 防止内容超出条码区域
+            y -= 4 * mm
+            if y < 20 * mm:  # 防止内容超出条码区域
                 c.drawString(8 * mm, y, "...")
                 break
 
-
-        # 生成一维码，减小 barWidth
-        barcode = code128.Code128(tracking_no, barHeight=20 * mm, barWidth=0.8)
+        # 生成一维码，适当减小 barWidth
+        barcode = code128.Code128(tracking_no, barHeight=15 * mm, barWidth=1.2)
         barcode_width = barcode.width
         x = (width - barcode_width) / 2  # 居中
-        barcode.drawOn(c, x, 20 * mm)
+        barcode.drawOn(c, x, 5 * mm)
 
         c.showPage()
         c.save()
