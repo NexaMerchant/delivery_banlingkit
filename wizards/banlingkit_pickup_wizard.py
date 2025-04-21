@@ -37,15 +37,15 @@ class BanlingkitExpressPickupWizard(models.TransientModel):
             """Helper to pass the times in the expexted format 'HH:MM'"""
             return "{:02.0f}:{:02.0f}".format(*divmod(float_time * 60, 60))
 
-        ctt_request = self.carrier_id._bl_request()
+        bl_request = self.carrier_id._bl_request()
         delivery_date = fields.Date.to_string(self.delivery_date)
-        error, code = ctt_request.create_request(
+        error, code = bl_request.create_request(
             delivery_date,
             convert_float_time_to_str(self.min_hour),
             convert_float_time_to_str(self.max_hour),
         )
-        self.carrier_id._ctt_check_error(error)
-        self.carrier_id._bl_log_request(ctt_request)
+        self.carrier_id._bl_check_error(error)
+        self.carrier_id._bl_log_request(bl_request)
         self.code = code
         self.state = "done"
         return dict(

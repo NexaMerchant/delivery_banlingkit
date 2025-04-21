@@ -92,7 +92,7 @@ class DeliveryCarrier(models.Model):
         print("banlingkit cct_request")
         print(bl_request)
 
-    def _ctt_check_error(self, error):
+    def _bl_check_error(self, error):
         """Common error checking. We stop the program when an error is returned.
 
         :param list error: List of tuples in the form of (code, description)
@@ -128,10 +128,10 @@ class DeliveryCarrier(models.Model):
         if not self.banlingkit_shipping_type:
             return
         # Avoid checking if credentianls aren't setup or are invalid
-        ctt_request = self._bl_request()
-        error, service_types = ctt_request.get_service_types()
-        self._bl_log_request(ctt_request)
-        self._ctt_check_error(error)
+        bl_request = self._bl_request()
+        error, service_types = bl_request.get_service_types()
+        self._bl_log_request(bl_request)
+        self._bl_check_error(error)
         type_codes, type_descriptions = zip(*service_types)
         if self.banlingkit_shipping_type not in type_codes:
             service_name = dict(
@@ -149,15 +149,15 @@ class DeliveryCarrier(models.Model):
                 )
             )
 
-    def action_ctt_validate_user(self):
+    def action_bl_validate_user(self):
         """Maps to API's ValidateUser method
 
         :raises UserError: If the user credentials aren't valid
         """
         self.ensure_one()
-        ctt_request = self._bl_request()
-        error = ctt_request.validate_user()
-        self._bl_log_request(ctt_request)
+        bl_request = self._bl_request()
+        error = bl_request.validate_user()
+        self._bl_log_request(bl_request)
 
     def _prepare_banlingkit_shipping(self, picking):
         """Convert picking values for Banlingkit Express API
@@ -236,26 +236,50 @@ class DeliveryCarrier(models.Model):
         :raises UserError: On any API error
         :return dict: With tracking number and delivery price (always 0)
         """
-        ctt_request = self._bl_request()
+        bl_request = self._bl_request()
         print("banlingkit_send_shipping")
-        print(ctt_request)
+        print(bl_request)
         result = []
         for picking in pickings:
+
+            # Check if the picking is already shipped
+            if picking.state == "done":
+                raise UserError(_("This picking is already shipped."))
+            
+            # check if the picking has a tracking number and the same carrier
+            if picking.carrier_tracking_ref and picking.carrier_id == self:
+                raise UserError(_("This picking already has a tracking number."))
+
+
             vals = self._prepare_banlingkit_shipping(picking)
             print("banlingkit_send_shipping vals")
             print(vals)
         
             try:
-                error, documents, tracking = ctt_request.manifest_shipping(shipping_values=vals)
-                self._ctt_check_error(error)
+                error, documents, tracking = bl_request.manifest_shipping(shipping_values=vals)
+                self._bl_check_error(error)
             except Exception as e:
-                print(e)
                 raise (e)
             finally:
-                self._bl_log_request(ctt_request)
+                self._bl_log_request(bl_request)
+                #return result
+                print("banlingkit_send_shipping finally" + str(bl_request))
+                print("banlingkit_send_shipping finally" + str(error))
 
             print(tracking)
             print(documents)
+
+            if tracking:
+                vals.update({"carrier_tracking_ref": tracking})
+
+            # if documents is empty, we need to use the default url
+            if not documents:
+                documents = "/delivery/print_label?tracking_no={}".format(
+                    tracking
+                )
+                base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
+                documents = base_url.rstrip('/') + documents
+                print("documents", documents)
 
 
             vals.update({"tracking_number": tracking, "exact_price": 0})
@@ -271,6 +295,7 @@ class DeliveryCarrier(models.Model):
             attachment = False
             if documents:
                 response = requests.get(documents)
+                print("response", response.status_code)
                 if response.status_code != 200:
                     raise Exception("Error in request")
                 pdf_content = response.content
@@ -291,11 +316,11 @@ class DeliveryCarrier(models.Model):
             #documents = self.banlingkit_get_label(tracking)
             # We post an extra message in the chatter with the barcode and the
             # label because there's clean way to override the one sent by core.
-            # body = _("Banlingkit Shipping Documents")
-            # picking.message_post(body=body, attachments=attachment)
+            
+            body = _("Banlingkit Shipping Documents")
+            picking.message_post(body=body)
 
-            print("banlingkit_send_shipping vals")
-            print(vals)
+            picking.sale_id.shipping_time = fields.Datetime.now()
 
             result.append(vals)
         return result
@@ -306,15 +331,15 @@ class DeliveryCarrier(models.Model):
         :param recordset: pickings `stock.picking` recordset
         :returns boolean: True if success
         """
-        ctt_request = self._bl_request()
+        bl_request = self._bl_request()
         for picking in pickings.filtered("carrier_tracking_ref"):
             try:
-                error = ctt_request.cancel_shipping(picking.carrier_tracking_ref)
-                self._ctt_check_error(error)
+                error = bl_request.cancel_shipping(picking.carrier_tracking_ref)
+                self._bl_check_error(error)
             except Exception as e:
                 raise (e)
             finally:
-                self._bl_log_request(ctt_request)
+                self._bl_log_request(bl_request)
         return True
 
     def banlingkit_get_label(self, reference):
@@ -323,22 +348,24 @@ class DeliveryCarrier(models.Model):
         :param str reference: shipping reference
         :returns tuple: (file_content, file_name)
         """
-        self.ensure_one()
+        if not self:
+            return False
         if not reference:
             return False
-        ctt_request = self._bl_request()
+        self.ensure_one()
+        bl_request = self._bl_request()
         try:
-            error, label = ctt_request.get_documents_multi(
+            error, label = bl_request.get_documents_multi(
                 reference,
                 model_code=self.banlingkit_document_model_code,
                 kind_code=self.banlingkit_document_format,
                 offset=self.banlingkit_document_offset,
             )
-            self._ctt_check_error(error)
+            self._bl_check_error(error)
         except Exception as e:
             raise (e)
         finally:
-            self._bl_log_request(ctt_request)
+            self._bl_log_request(bl_request)
         if not label:
             return False
         return label
@@ -351,14 +378,14 @@ class DeliveryCarrier(models.Model):
         self.ensure_one()
         if not picking.carrier_tracking_ref:
             return
-        ctt_request = self._bl_request()
+        bl_request = self._bl_request()
         try:
-            error, trackings = ctt_request.get_tracking(picking.carrier_tracking_ref)
-            self._ctt_check_error(error)
+            error, trackings = bl_request.get_tracking(picking.carrier_tracking_ref)
+            self._bl_check_error(error)
         except Exception as e:
             raise (e)
         finally:
-            self._bl_log_request(ctt_request)
+            self._bl_log_request(bl_request)
         picking.tracking_state_history = "\n".join(
             [self._banlingkit_format_tracking(tracking) for tracking in trackings]
         )

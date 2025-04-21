@@ -35,7 +35,7 @@
                             />
 
                             <button
-                                name="action_ctt_validate_user"
+                                name="action_bl_validate_user"
                                 type="object"
                                 string="Test connection"
                                 class="oe_link"

@@ -64,10 +64,10 @@ class TestDeliveryBanlingkitExpress(common.TransactionCase):
 
     def test_00_banlingkit_test_connection(self):
         """Test credentials validation"""
-        self.carrier_banlingkit.action_ctt_validate_user()
+        self.carrier_banlingkit.action_bl_validate_user()
         self.carrier_banlingkit.banlingkit_password = "Bad password"
         with self.assertRaises(UserError):
-            self.carrier_banlingkit.action_ctt_validate_user()
+            self.carrier_banlingkit.action_bl_validate_user()
 
     def test_01_banlingkit_picking_confirm_simple(self):
         """The picking is confirm and the shipping is recorded to Banlingkit Express"""

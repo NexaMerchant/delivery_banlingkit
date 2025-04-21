@@ -51,32 +51,38 @@ class DeliverPrintController(http.Controller):
         c.setFont("Microsoft_YaHei", 12)
         c.drawString(3 * mm, top, f"面单号: {tracking_no}")
 
-        c.setFont("Microsoft_YaHei", 10)
-        line_gap = 7 * mm  # 行间距缩小
-        c.drawString(3 * mm, top - line_gap, f"收件人/国家: {name} {country}")
-        # 省份和城市合并一行
-        c.drawString(3 * mm, top - 2 * line_gap, f"省份/城市: {region} {city}")
-        c.drawString(3 * mm, top - 3 * line_gap, f"地址: {address}")
-        c.drawString(3 * mm, top - 4 * line_gap, f"打印时间: {print_time}")
-
-        # 商品内容
-        y = top - 5 * line_gap
-        c.setFont("Microsoft_YaHei", 10)
-        c.drawString(3 * mm, y, "商品列表:")
-        y -= 5 * mm
-        for line in order.order_line:
-            product_str = f"{line.product_id.display_name} x {line.product_uom_qty}"
-            c.drawString(8 * mm, y, product_str)
-            y -= 4 * mm
-            if y < 20 * mm:  # 防止内容超出条码区域
-                c.drawString(8 * mm, y, "...")
-                break
-
-        # 生成一维码，适当减小 barWidth
+        # 生成一维码，紧跟在面单号下方
         barcode = code128.Code128(tracking_no, barHeight=15 * mm, barWidth=1.2)
         barcode_width = barcode.width
         x = (width - barcode_width) / 2  # 居中
-        barcode.drawOn(c, x, 5 * mm)
+        barcode_y = top - 6 * mm - 15 * mm  # 面单号下方12mm，条码高度15mm
+        barcode.drawOn(c, x, barcode_y)
+
+        # 继续绘制其他内容
+        line_gap = 7 * mm
+        content_top = barcode_y - 10 * mm  # 条码下方再空10mm开始内容
+        c.setFont("Microsoft_YaHei", 10)
+        c.drawString(3 * mm, content_top, f"收件人/国家: {name} {country}")
+        c.drawString(3 * mm, content_top - line_gap, f"省份/城市: {region} {city}")
+        c.drawString(3 * mm, content_top - 2 * line_gap, f"地址: {address}")
+        c.drawString(3 * mm, content_top - 3 * line_gap, f"打印时间: {print_time}")
+
+        # 商品内容
+        y = content_top - 4 * line_gap  # 提高起始位置
+        c.setFont("Microsoft_YaHei", 10)
+        c.drawString(3 * mm, y, "商品列表:")
+        y -= 3.5 * mm  # 更小的行距
+        for line in order.order_line:
+            # 获取变体值字符串
+            variant = ''
+            if line.product_id.product_template_attribute_value_ids:
+                variant = ' [' + ', '.join(v.name for v in line.product_id.product_template_attribute_value_ids) + ']'
+            product_str = f"{line.product_id.display_name}{variant} x {line.product_uom_qty}"
+            c.drawString(8 * mm, y, product_str)
+            y -= 3.5 * mm
+            if y < 15 * mm:  # 保证不与底部内容重叠
+                c.drawString(8 * mm, y, "...")
+                break
 
         c.showPage()
         c.save()

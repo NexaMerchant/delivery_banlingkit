@@ -53,14 +53,14 @@ class BanlingkitExpressManifestWizard(models.TransientModel):
                 )
             )
         for carrier in filtered_carriers:
-            ctt_request = carrier._bl_request()
+            bl_request = carrier._bl_request()
             from_date = fields.Date.to_string(self.from_date)
             to_date = fields.Date.to_string(self.to_date)
-            error, manifest = ctt_request.report_shipping(
+            error, manifest = bl_request.report_shipping(
                 "ODOO", self.document_type, from_date, to_date
             )
-            carrier._ctt_check_error(error)
-            carrier._bl_log_request(ctt_request)
+            carrier._bl_check_error(error)
+            carrier._bl_log_request(bl_request)
             for _filename, file in manifest:
                 filename = "{}{}{}-{}-{}.{}".format(
                     carrier.banlingkit_customer,
