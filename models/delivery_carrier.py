@@ -243,8 +243,8 @@ class DeliveryCarrier(models.Model):
         for picking in pickings:
 
             # Check if the picking is already shipped
-            if picking.state == "done":
-                raise UserError(_("This picking is already shipped."))
+            # if picking.state == "done":
+            #     raise UserError(_("This picking is already shipped."))
             
             # check if the picking has a tracking number and the same carrier
             if picking.carrier_tracking_ref and picking.carrier_id == self:

@@ -173,10 +173,10 @@ class BanlingkitExpressRequest:
         """
         url = "https://label.Banlingkit.com/BanlingkitPrint"
         timestamp = str(int(time.time()*1000))
-        secret = self.get_secret(timestamp)
+        
         data = {
             "icID": self.cid,
-            "signature": secret,
+            "signature": self.salt,
             "cNos": shipping_codes,
             "ptemp": "label10x15_1",
         }
@@ -259,7 +259,6 @@ class BanlingkitExpressRequest:
         """
         url = self.url + "/invoice/lists"
         timestamp = str(int(time.time()*1000))
-        secret = self.get_secret(timestamp)
         headers = {
             "salt": self.salt,
         }
